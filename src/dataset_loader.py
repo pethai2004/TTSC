@@ -1,5 +1,8 @@
 
 import re
+
+
+from queue import Queue
 import logging
 import json
 import unicodedata
@@ -9,9 +12,13 @@ import urllib.request
 import tarfile
 import shutil
 
+import datasets
+from datasets import load_dataset
+
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
+    
 def load_ljspeech(target_dir='./assets/LJSpeech-1.1', create_meta_json="formatted", add_root_path_key=True, preprocess_metadata=True):
     
     '''load LJSpeech dataset, then create metadata in JSON format if create_meta_json is "original", the JSON key will be same 

@@ -32,4 +32,4 @@ RUN python3 -m venv .venv
 
 # Activate virtual environment and install requirements
 #RUN .venv/bin/pip3 install -r requirements.txt
-RUN .venv/bin/pip3 install TTS --no-cache-dir
+RUN .venv/bin/pip3 install TTS accelerate datasets --no-cache-dir
