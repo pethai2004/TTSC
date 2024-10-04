@@ -1,6 +1,5 @@
 
 import re
-from queue import Queue
 import logging
 import json
 import unicodedata
@@ -9,206 +8,9 @@ import math
 import urllib.request
 import tarfile
 import shutil
-from queue import Queue
-
-import torch 
-from torch.nn.utils.rnn import pad_sequence
-import torchaudio
-import datasets
-from datasets import load_dataset
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
-
-# hf_XEjvuYDlxCKIvmRnruVhizRQziiCpAhacgp
-
-def load_validate_audio(audiopath, sampling_rate):
-    audio, lsr = torchaudio.load(audiopath)
-
-    if audio.size(0) != 1:
-        audio = torch.mean(audio, dim=0, keepdim=True)
-
-    if lsr != sampling_rate:
-        audio = torchaudio.functional.resample(audio, lsr, sampling_rate)
-    if torch.any(audio > 10) or not torch.any(audio < 0):
-        raise ValueError(f"Audio not normalized: {audio.min()}, {audio.max()}")
-
-    audio.clip_(-1, 1)
-    if audio.shape[-1] < (0.5 * sampling_rate):
-        raise ValueError(f"Audio too short: {audio.shape[-1]}")
-    
-    return audio
-
-def get_path_recursive(path):
-
-    if isinstance(path, dict):
-        return get_path_recursive(next(iter(path.values())))
-    elif isinstance(path, list):
-        return [get_path_recursive(p) for p in path]
-    return path
-
-def remove_recursive(path, except_paths=None):
-
-    except_paths = except_paths or []
-    if os.path.isdir(path):
-        for p in os.listdir(path):
-            remove_recursive(os.path.join(path, p), except_paths)
-        if path not in except_paths:
-            os.rmdir(path)
-    elif path not in except_paths:
-        os.remove(path)
-
-def flatten_audio(example):
-
-    example['wav'] = example['audio']['array']
-    example['sampling_rate'] = example['audio']['sampling_rate']
-    example['path'] = example['audio']['path']
-    del example['audio']
-    if 'duration_ms' not in example:
-        example['duration_ms'] = len(example['wav']) / example['sampling_rate'] * 1000
-        
-    return example
-
-class BaseDataset:
-    def __init__(self, repo, split, cache_dir, num_proc=16):
-        assert split in ['train', 'validation', 'test']
-        self.repo = repo
-        self.split = split
-        self.cache_dir = cache_dir
-        self.num_proc = num_proc
-        self.load_queue = Queue()
-        self.dataset = None
-        self.current_parquet_path = None
-
-        if os.path.exists(self.cache_dir):
-            remove_recursive(self.cache_dir)
-        os.makedirs(self.cache_dir, exist_ok=True)
-
-    def _load_parquet(self, url):
-
-        self.current_parquet_path = os.path.join(self.cache_dir, os.path.basename(url))
-        urllib.request.urlretrieve(url, self.current_parquet_path)
-
-    def _create_dataset(self, remove_columns=[]):
-
-        if self.dataset is not None:
-            # Remove existing dataset files
-            cache_files = get_path_recursive(self.dataset.cache_files)
-            remove_recursive(self.current_parquet_path)
-            for f in cache_files:
-                os.remove(f)
-
-        self._load_parquet(self.load_queue.get())
-        self.dataset = load_dataset('parquet', data_files=self.current_parquet_path, cache_dir=self.cache_dir, keep_in_memory=True)['train']
-        self.dataset = self.dataset.remove_columns(remove_columns)
-        self.dataset = self.dataset.map(flatten_audio, num_proc=self.num_proc, batch_size=1024)
-        use_col = ['text', 'wav', 'sampling_rate', 'path', 'duration_ms']
-        self.dataset = self.dataset.remove_columns([col for col in self.dataset.column_names if col not in use_col])
-        
-    @staticmethod
-    def audio_collate_fn(batch):
-        '''Collate function for DVAE dataset'''
-        #batch["wav_length"] = torch.stack(batch["wav_length"])
-        # note batch['wav'] has shape [1, seq_length]
-        wav_padded = pad_sequence([wav[0] for wav in batch["wav"]], batch_first=True)
-        wav_padded = wav_padded.unsqueeze(1)    # Add a channel dimension
-        batch["wav"] = wav_padded
-        # now has shape
-        return batch
-    
-class PeopleSpeechDataset(BaseDataset):
-    endpoint = "https://huggingface.co/api/datasets/MLCommons/peoples_speech/parquet/default/train"
-    
-    def __init__(self, split='train', cache_dir='./assets/.peoples_speech_cache'):
-        super().__init__('MLCommons/peoples_speech', split, cache_dir)
-        self.endpoint_url = sorted(eval(urllib.request.urlopen(PeopleSpeechDataset.endpoint).read().decode('utf-8')))
-        for url in self.endpoint_url:
-            self.load_queue.put(url)
-
-    @property
-    def current_data_length(self):
-        return len(self.dataset)
-
-class GigaSpeechDataset(BaseDataset):
-    
-    def __init__(self, hf_token, subset='dev', split='validation', cache_dir='./assets/.gigaspeech_cache', num_proc=16):
-        super().__init__('speechcolab/gigaspeech', split, cache_dir, num_proc)
-        self.hf_token = hf_token
-        self.endpoint = f"https://huggingface.co/api/datasets/speechcolab/gigaspeech/parquet/{subset}/{split}"
-        req = urllib.request.Request(self.endpoint)
-        req.add_header("Authorization", f"Bearer {hf_token}")
-        self.endpoint_url = sorted(eval(urllib.request.urlopen(req).read().decode('utf-8')))
-        for url in self.endpoint_url:
-            self.load_queue.put(url)
-
-    def _load_parquet(self, url):
-
-        request = urllib.request.Request(url)
-        request.add_header('Authorization', f'Bearer {self.hf_token}')
-        self.current_parquet_path = os.path.join(self.cache_dir, os.path.basename(url))
-        with urllib.request.urlopen(request) as response, open(self.current_parquet_path, 'wb') as out_file:
-            out_file.write(response.read())
-
-class LJSpeechDataset(BaseDataset): # we will load entire dataset at once (small dataset) 
-    
-    @staticmethod
-    def _load_dataset(self, target_dir='./assets/'):
-        load_ljspeech(target_dir)  
-        
-    def __init__(self, dataset_path: str, sampling_rate=16000, split='train', cache_dir='./assets/.ljspeech_cache'):
-        self.dataset_path = dataset_path
-        self.meta_data_path = os.path.join(self.dataset_path, 'metadata.json')
-        assert os.path.exists(self.dataset_path) and os.path.exists(self.meta_data_path)
-        
-        torch.set_num_threads(1)
-        samples = json.loads(open(os.path.join(self.dataset_path, 'metadata.json')).read())
-        self.samples = []
-        
-        for s in samples:
-            try:
-                load_validate_audio(s['audio_file'], sampling_rate)
-            except Exception as e:
-                logging.warning(f"Error loading {s['audio_file']}: {e}")
-                continue
-            self.samples.append(s)
-        logging.info(f"Loaded and validated {len(self.samples)} samples out of {len(samples)}")
-            
-        self.sampling_rate = sampling_rate
-        self._failed_idx = set()
-        
-    def __len__(self):  
-        return len(self.samples)
-    
-    def __getitem__(self, idx):
-        # Always assume that the audio data is valid, otherwise ignore
-        
-        if idx in self._failed_idx:
-            return self.__getitem__(idx + 1)
-        try:
-            wav = load_validate_audio(self.samples[idx]['audio_file'], self.sampling_rate)
-        except Exception as e:
-            logging.error(f"Error loading {self.samples[idx]['audio_file']}: {e}")
-            if not idx in self._failed_idx:
-                self._failed_idx.add(idx)
-            #try calling the next index
-            return self.__getitem__(idx + 1)
-        
-        wav_length = torch.tensor(wav.shape[-1], dtype=torch.long)
-        audio_dict = {"wav": wav, 'wav_length': wav_length, 'audio_path': self.samples[idx]['audio_file']}
-        return audio_dict
-
-    @staticmethod
-    def audio_collate_fn(batch):
-        '''Collate function for DVAE dataset'''
-    
-        batch = {k: [dic[k] for dic in batch] for k in batch[0]}
-        batch["wav_length"] = torch.stack(batch["wav_length"])
-        # note batch['wav'] has shape [1, seq_length]
-        wav_padded = pad_sequence([wav[0] for wav in batch["wav"]], batch_first=True)
-        wav_padded = wav_padded.unsqueeze(1)    # Add a channel dimension
-        batch["wav"] = wav_padded
-        # now has shape
-        return batch
 
 ############################################################################################################
 
@@ -222,7 +24,7 @@ def load_ljspeech(target_dir='./assets/', create_meta_json="formatted", add_root
     assert os.path.exists(target_dir), f"------->>>> Target directory {target_dir} does not exist"
     path_to_data = os.path.join(target_dir, 'LJSpeech-1.1')
     exist = os.path.exists(path_to_data) and os.path.exists(os.path.join(path_to_data, 'metadata.json'))
-    if exist: # assume the dataset is not loaded
+    if not exist: # assume the dataset is not loaded
         url =  'http://data.keithito.com/data/speech/LJSpeech-1.1.tar.bz2'
         file_path ='LJSpeech-1.1.tar.bz2'
         logger.info(f"Loading LJSpeech dataset ...")
