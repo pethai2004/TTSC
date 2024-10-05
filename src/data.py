@@ -118,10 +118,15 @@ class AudioData(IterableDataset):
         '''Reset the dataset to the initial state / or load the dataset'''
         raise NotImplementedError
     
-    def reset(self):
-        # reset at each epoch
-        # remove all
-        
+    def reset(self, clear_cache: bool = False):
+        '''Reset the dataset to the initial state (call at the end of epoch)'''
+        assert self.config.streaming
+        del self._data
+        if clear_cache:
+            # recursively delete the cache directory and file
+            import shutil
+            shutil.rmtree(self.cache_dir)
+        self.init_load_data()
         
 class GigaSpeech(AudioData):
 
