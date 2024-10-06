@@ -8,7 +8,7 @@ import torch
 import torch.distributed as D
 from torch.optim import Adam, lr_scheduler
 from torch.utils.tensorboard import SummaryWriter   
-from torch.profiler import profile, record_function, ProfilerActivity
+from torch.profiler import profile, record_function, ProfilerActivity, schedule, tensorboard_trace_handler
 from src.data_utility import _put
 from src.dvae_modeling import wrappedDVAE
 from src.gigaspeech_dataset import IterableGigaSpeech, collate_fn
@@ -47,9 +47,11 @@ def main(
     **model_args
 ):
     
-    # if not D.is_initialized():
-    #     D.init_process_group(backend='gloo', init_method='env://')
-    # assert D.get_world_size() == 1, "This script is only for single GPU training"
+    if not D.is_initialized():
+        D.init_process_group(backend='gloo', init_method='env://')
+    assert D.get_world_size() == 1, "This script is only for single GPU training"
+    logger.info(f"------->>>> Training on {config.device}")
+    
     
     training_output_dir = os.path.join(config.output_dir, 'dvae.pth', config.trial_name)
     if os.path.exists(training_output_dir):
@@ -91,51 +93,66 @@ def main(
     
     best_evaluation = float('inf')
     global_training_steps = 0
-    
     for epoch in range(config.num_epochs):
         
         model.eval()
         start_eval = time.time()
-        with torch.autocast(device_type=config.device, 
-                            dtype=config.wav_dtype,
-                            enabled=True):
-            
-            logger.info(f"------->>>> Start evaluation at epoch {epoch}")
-            with torch.no_grad(): 
-                eval_loss = 0
-                num_eval_steps = 0
-                for i, batch in enumerate(eval_data_iter):
-                    batch = collate_fn(batch, device=config.device, dtype=config.wav_dtype, non_blocking=config.non_blocking)
-                    wav = batch['wav']
-                    loss = model(wav)
-                    eval_loss += (loss['reconstruction_loss'] + loss['commitment_loss']).item()
-                    
-                    if torch.isnan(torch.tensor(eval_loss)) or torch.isinf(torch.tensor(eval_loss)):
-                        logger.info(f"------->>>> Evaluation Loss is NaN or Inf at global step {global_training_steps}")
-                        continue    
-                    
-                    num_eval_steps += 1
-                    if num_eval_steps >= config.max_eval_step and config.max_eval_step > 0:
-                        # should be "{eval_data.global_batch_sample_so_far}== {num_eval_steps}")
+        
+        logger.info(f"------->>>> Start evaluation at epoch {epoch}")
+        with torch.no_grad(): 
+            eval_loss = 0
+            num_eval_steps = 0
+            for i, batch in enumerate(eval_data_iter):
+                batch = collate_fn(batch, device=config.device, dtype=config.wav_dtype, non_blocking=config.non_blocking)
+                wav = batch['wav']
+                loss = model(wav)
+                eval_loss += (loss['reconstruction_loss'] + loss['commitment_loss']).item()
+                
+                if torch.isnan(torch.tensor(eval_loss)) or torch.isinf(torch.tensor(eval_loss)):
+                    logger.info(f"------->>>> Evaluation Loss is NaN or Inf at global step {global_training_steps}")
+                    continue    
+                
+                num_eval_steps += 1
+                if num_eval_steps >= config.max_eval_step and config.max_eval_step > 0:
+                    break
+                
+            eval_loss /= num_eval_steps
+            if eval_loss < best_evaluation:
+                best_evaluation = eval_loss
+                torch.save(model.state_dict(), dvae_path)
+                logger.info(f"------->>>> Saved model at {dvae_path}")
+            logger.info(f"------->>>> Epoch {epoch} Evaluation Loss: {eval_loss} with time {time.time() - start_eval} at global step {global_training_steps}")
+    
+        activity = [ProfilerActivity.CPU] 
+        if torch.cuda.is_available(): activity += [ProfilerActivity.CUDA]
+        schedule_ = schedule(wait=1, warmup=1, active=15, repeat=5)
+        profiler = profile(
+            schedule=schedule_,
+            on_trace_ready=tensorboard_trace_handler(summary_path),
+            activities=activity,
+            profile_memory=True,
+            use_cuda=True
+        )
+        try:
+            model.train()
+            start_train = time.time()
+            logger.info(f"------->>>> Start training at epoch {epoch}")
+            with profiler as prof:
+                i = 0
+                while True:
+                    optimizer.zero_grad()
+                    try: # maybe move this to outer context manager
+                        with record_function("Fetch Batch"):
+                            batch = next(train_data_iter)
+                            batch = collate_fn(batch, device=config.device, dtype=config.wav_dtype, non_blocking=config.non_blocking)
+                    except StopIteration:
+                        logger.info(f"------->>>> End of training data iterator at global step {global_training_steps}")
                         break
                     
-                eval_loss /= num_eval_steps
-                if eval_loss < best_evaluation:
-                    best_evaluation = eval_loss
-                    torch.save(model.state_dict(), dvae_path)
-                    logger.info(f"------->>>> Saved model at {dvae_path}")
-                logger.info(f"------->>>> Epoch {epoch} Evaluation Loss: {eval_loss} with time {time.time() - start_eval} at global step {global_training_steps}")
-        
-            logger.info(f"------->>>> Start training at epoch {epoch}")
-            try:
-                model.train()
-                start_train = time.time()
-                for i, batch in enumerate(train_data_iter):
-                    optimizer.zero_grad()
-                    batch = collate_fn(batch, device=config.device, dtype=config.wav_dtype, non_blocking=config.non_blocking)
                     wav = batch['wav']
                     recon_loss, commit_loss = model(wav).values()
                     loss = recon_loss + commit_loss
+                    
                     if torch.isnan(loss) or torch.isinf(loss):
                         logger.info(f"------->>>> Training Loss is NaN or Inf at global step {global_training_steps}")
                         continue
@@ -158,20 +175,23 @@ def main(
 
                     model_code = model.get_codebook_indices(wav)['code']
                     num_unique_ele = torch.unique(model_code).numel()
-                    writer.add_scalar("UniqueCodebookElements", num_unique_ele, global_training_steps) # should increase over time
+                    writer.add_scalar("UniqueCodebookElements", num_unique_ele, global_training_steps)
                     
                     if global_training_steps >= config.max_batch_step and config.max_batch_step > 0:
+                        logger.info(f"------->>>> Training early stopped at global step {global_training_steps} for epoch {epoch}")
                         break
+                    prof.step()
+                    i += 1
                     
                 logger.info(f"------->>>> Epoch {epoch} completed in {time.time() - start_train} seconds")
-            
-            except KeyboardInterrupt:
-                logger.info(f"------->>>> Training interrupted, saved model saved at {dvae_path}")
-                torch.save(model.state_dict(), os.path.join(config.output_dir, 'dvae.pth'))
-                break
-            
-            logger.info(f"------->>>> Training completed, saved model saved at {os.path.join(config.output_dir, 'dvae.pth')}")
-            
+
+        except KeyboardInterrupt:
+            logger.info(f"------->>>> Training interrupted, saved model saved at {dvae_path}")
+            torch.save(model.state_dict(), os.path.join(config.output_dir, 'dvae.pth')) # save directly to output directory
+            break
+        
+        logger.info(f"------->>>> Training completed, saved model saved at {os.path.join(config.output_dir, 'dvae.pth')}")
+        
     return dvae_path
 
 if __name__ == "__main__":
@@ -184,10 +204,10 @@ if __name__ == "__main__":
     
     parser.add_argument("--model_checkpoint", type=str, default=None)
     
-    parser.add_argument("--per_device_batch_size", type=int, default=32)
+    parser.add_argument("--per_device_batch_size", type=int, default=64)
     parser.add_argument("--num_epochs", type=int, default=30)
-    parser.add_argument("--max_batch_step", type=int, default=-1)
-    parser.add_argument("--max_eval_step", type=int, default=1000)
+    parser.add_argument("--max_batch_step", type=int, default=1000)
+    parser.add_argument("--max_eval_step", type=int, default=100)
     parser.add_argument("--log_interval", type=int, default=30)
     
     args = parser.parse_args()
