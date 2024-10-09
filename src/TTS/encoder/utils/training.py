@@ -7,9 +7,9 @@ from trainer.io import copy_model_files
 from trainer.logging import logger_factory
 from trainer.logging.console_logger import ConsoleLogger
 
-from TTS.config import load_config, register_config
-from TTS.tts.utils.text.characters import parse_symbols
-from TTS.utils.generic_utils import get_experiment_folder_path, get_git_branch
+from src.TTS.config import load_config, register_config
+from src.TTS.tts.utils.text.characters import parse_symbols
+from src.TTS.utils.generic_utils import get_experiment_folder_path, get_git_branch
 
 
 @dataclass

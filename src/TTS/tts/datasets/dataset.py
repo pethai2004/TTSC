@@ -9,9 +9,9 @@ import torch
 import tqdm
 from torch.utils.data import Dataset
 
-from TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
-from TTS.utils.audio import AudioProcessor
-from TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
+from src.TTS.tts.utils.data import prepare_data, prepare_stop_target, prepare_tensor
+from src.TTS.utils.audio import AudioProcessor
+from src.TTS.utils.audio.numpy_transforms import compute_energy as calculate_energy
 
 import mutagen
 

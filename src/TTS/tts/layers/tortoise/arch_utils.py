@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torchaudio
 from transformers import LogitsWarper
 
-from TTS.tts.layers.tortoise.xtransformers import ContinuousTransformerWrapper, RelativePositionBias
+from src.TTS.tts.layers.tortoise.xtransformers import ContinuousTransformerWrapper, RelativePositionBias
 
 
 def zero_module(module):

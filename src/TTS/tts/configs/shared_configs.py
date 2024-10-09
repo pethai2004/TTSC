@@ -3,7 +3,7 @@ from typing import Dict, List
 
 from coqpit import Coqpit, check_argument
 
-from TTS.config import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
+from src.TTS.config import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
 
 
 @dataclass

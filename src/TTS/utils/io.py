@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Union
 import fsspec
 import torch
 
-from TTS.utils.generic_utils import get_user_data_dir
+from src.TTS.utils.generic_utils import get_user_data_dir
 
 
 class RenamingUnpickler(pickle_tts.Unpickler):

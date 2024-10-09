@@ -6,8 +6,8 @@ import numpy as np
 import scipy.io.wavfile
 import scipy.signal
 
-from TTS.tts.utils.helpers import StandardScaler
-from TTS.utils.audio.numpy_transforms import (
+from src.TTS.tts.utils.helpers import StandardScaler
+from src.TTS.utils.audio.numpy_transforms import (
     amp_to_db,
     build_mel_basis,
     compute_f0,

@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 
-from TTS.encoder.configs.base_encoder_config import BaseEncoderConfig
+from src.TTS.encoder.configs.base_encoder_config import BaseEncoderConfig
 
 
 @dataclass

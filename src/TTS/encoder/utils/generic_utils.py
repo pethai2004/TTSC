@@ -5,8 +5,8 @@ import random
 import numpy as np
 from scipy import signal
 
-from TTS.encoder.models.lstm import LSTMSpeakerEncoder
-from TTS.encoder.models.resnet import ResNetSpeakerEncoder
+from src.TTS.encoder.models.lstm import LSTMSpeakerEncoder
+from src.TTS.encoder.models.resnet import ResNetSpeakerEncoder
 
 
 class AugmentWAV(object):

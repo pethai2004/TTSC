@@ -1,1 +1,1 @@
-from TTS.tts.layers.losses import *
+from src.TTS.tts.layers.losses import *

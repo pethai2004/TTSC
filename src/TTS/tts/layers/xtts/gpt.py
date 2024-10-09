@@ -9,9 +9,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import GPT2Config
 
-from TTS.tts.layers.xtts.gpt_inference import GPT2InferenceModel
-from TTS.tts.layers.xtts.latent_encoder import ConditioningEncoder
-from TTS.tts.layers.xtts.perceiver_encoder import PerceiverResampler
+from src.TTS.tts.layers.xtts.gpt_inference import GPT2InferenceModel
+from src.TTS.tts.layers.xtts.latent_encoder import ConditioningEncoder
+from src.TTS.tts.layers.xtts.perceiver_encoder import PerceiverResampler
 
 
 def null_position_embeddings(range, dim):

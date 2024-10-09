@@ -10,15 +10,15 @@ from torch.utils.data import DataLoader
 from trainer.torch import DistributedSampler
 from trainer.trainer_utils import get_optimizer, get_scheduler
 
-from TTS.tts.configs.xtts_config import XttsConfig
-from TTS.tts.datasets.dataset import TTSDataset
-from TTS.tts.layers.tortoise.arch_utils import TorchMelSpectrogram
-from TTS.tts.layers.xtts.dvae import DiscreteVAE
-from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
-from TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
-from TTS.tts.models.base_tts import BaseTTS
-from TTS.tts.models.xtts import Xtts, XttsArgs, XttsAudioConfig
-from TTS.utils.io import load_fsspec
+from src.TTS.tts.configs.xtts_config import XttsConfig
+from src.TTS.tts.datasets.dataset import TTSDataset
+from src.TTS.tts.layers.tortoise.arch_utils import TorchMelSpectrogram
+from src.TTS.tts.layers.xtts.dvae import DiscreteVAE
+from src.TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer
+from src.TTS.tts.layers.xtts.trainer.dataset import XTTSDataset
+from src.TTS.tts.models.base_tts import BaseTTS
+from src.TTS.tts.models.xtts import Xtts, XttsArgs, XttsAudioConfig
+from src.TTS.utils.io import load_fsspec
 
 
 @dataclass

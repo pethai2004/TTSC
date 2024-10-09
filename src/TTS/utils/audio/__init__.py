@@ -1,1 +1,1 @@
-from TTS.utils.audio.processor import AudioProcessor
+from src.TTS.utils.audio.processor import AudioProcessor

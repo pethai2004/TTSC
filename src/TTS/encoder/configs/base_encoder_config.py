@@ -3,7 +3,7 @@ from typing import Dict, List
 
 from coqpit import MISSING
 
-from TTS.config.shared_configs import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
+from src.TTS.config.shared_configs import BaseAudioConfig, BaseDatasetConfig, BaseTrainingConfig
 
 
 @dataclass

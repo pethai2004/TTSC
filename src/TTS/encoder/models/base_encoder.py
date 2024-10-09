@@ -4,9 +4,9 @@ import torchaudio
 from coqpit import Coqpit
 from torch import nn
 
-from TTS.encoder.losses import AngleProtoLoss, GE2ELoss, SoftmaxAngleProtoLoss
-from TTS.utils.generic_utils import set_init_dict
-from TTS.utils.io import load_fsspec
+from src.TTS.encoder.losses import AngleProtoLoss, GE2ELoss, SoftmaxAngleProtoLoss
+from src.TTS.utils.generic_utils import set_init_dict
+from src.TTS.utils.io import load_fsspec
 
 
 class PreEmphasis(nn.Module):

@@ -6,9 +6,9 @@ import fsspec
 import numpy as np
 import torch
 
-from TTS.config import load_config
-from TTS.encoder.utils.generic_utils import setup_encoder_model
-from TTS.utils.audio import AudioProcessor
+from src.TTS.config import load_config
+from src.TTS.encoder.utils.generic_utils import setup_encoder_model
+from src.TTS.utils.audio import AudioProcessor
 
 
 def load_file(path: str):

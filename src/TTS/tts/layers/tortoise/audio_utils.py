@@ -8,7 +8,7 @@ import torch
 import torchaudio
 from scipy.io.wavfile import read
 
-from TTS.utils.audio.torch_transforms import TorchSTFT
+from src.TTS.utils.audio.torch_transforms import TorchSTFT
 
 
 def load_wav_to_torch(full_path):

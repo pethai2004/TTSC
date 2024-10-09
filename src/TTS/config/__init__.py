@@ -7,8 +7,8 @@ import fsspec
 import yaml
 from coqpit import Coqpit
 
-from TTS.config.shared_configs import *
-from TTS.utils.generic_utils import find_module
+from src.TTS.config.shared_configs import *
+from src.TTS.utils.generic_utils import find_module
 
 
 def read_json_with_comments(json_path):

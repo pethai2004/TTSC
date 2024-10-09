@@ -3,7 +3,7 @@ import random
 import torch
 from torch.utils.data import Dataset
 
-from TTS.encoder.utils.generic_utils import AugmentWAV
+from src.TTS.encoder.utils.generic_utils import AugmentWAV
 
 
 class EncoderDataset(Dataset):

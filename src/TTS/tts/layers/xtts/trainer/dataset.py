@@ -6,10 +6,31 @@ import torch
 import torch.nn.functional as F
 import torch.utils.data
 
-from TTS.tts.models.xtts import load_audio
+from src.TTS.tts.models.xtts import load_audio
 
 torch.set_num_threads(1)
 
+
+def load_audio(audiopath, sampling_rate):
+    # better load setting following: https://github.com/faroit/python_audio_loading_benchmark
+
+    # torchaudio should chose proper backend to load audio depending on platform
+    audio, lsr = torchaudio.load(audiopath)
+
+    # stereo to mono if needed
+    if audio.size(0) != 1:
+        audio = torch.mean(audio, dim=0, keepdim=True)
+    # now we have [1, T] tensor
+    if lsr != sampling_rate:
+        audio = torchaudio.functional.resample(audio, lsr, sampling_rate)
+
+    # Check some assumptions about audio range. This should be automatically fixed in load_wav_to_torch, but might not be in some edge cases, where we should squawk.
+    # '10' is arbitrarily chosen since it seems like audio will often "overdrive" the [-1,1] bounds.
+    if torch.any(audio > 10) or not torch.any(audio < 0):
+        print(f"Error with {audiopath}. Max={audio.max()} min={audio.min()}")
+    # clip audio invalid values
+    audio.clip_(-1, 1)
+    return audio
 
 def key_samples_by_col(samples, col):
     """Returns a dictionary of samples keyed by language."""
@@ -24,7 +45,7 @@ def key_samples_by_col(samples, col):
 
 
 def get_prompt_slice(gt_path, max_sample_length, min_sample_length, sample_rate, is_eval=False):
-    rel_clip = load_audio(gt_path, sample_rate)
+    rel_clip = load_audio(gt_path, sample_rate) # [1, T]
     # if eval uses a middle size sample when it is possible to be more reproducible
     if is_eval:
         sample_length = int((min_sample_length + max_sample_length) / 2)
@@ -41,9 +62,9 @@ def get_prompt_slice(gt_path, max_sample_length, min_sample_length, sample_rate,
     else:
         rand_start = random.randint(0, gap)
 
-    rand_end = rand_start + sample_length
-    rel_clip = rel_clip[:, rand_start:rand_end]
-    rel_clip = F.pad(rel_clip, pad=(0, max_sample_length - rel_clip.shape[-1]))
+    rand_end = rand_start + sample_length 
+    rel_clip = rel_clip[:, rand_start:rand_end] # [1, T - gap]
+    rel_clip = F.pad(rel_clip, pad=(0, max_sample_length - rel_clip.shape[-1])) # [1, max_sample_length]
     cond_idxs = [rand_start, rand_end]
     return rel_clip, rel_clip.shape[-1], cond_idxs
 
@@ -118,7 +139,7 @@ class XTTSDataset(torch.utils.data.Dataset):
             # get a slice from GT to condition the model
             cond, _, cond_idxs = get_prompt_slice(
                 audiopath, self.max_conditioning_length, self.min_conditioning_length, self.sample_rate, self.is_eval
-            )
+            ) # cond: [1, max_conditioning_length]
             # if use masking do not use cond_len
             cond_len = torch.nan
         else:
@@ -129,7 +150,7 @@ class XTTSDataset(torch.utils.data.Dataset):
             )
             cond, cond_len, _ = get_prompt_slice(
                 ref_sample, self.max_conditioning_length, self.min_conditioning_length, self.sample_rate, self.is_eval
-            )
+            ) # cond [1, max_conditioning_length] since it is a slice from GT which is loaded by torchaudio.load which return [1, T]
             # if do not use masking use cond_len
             cond_idxs = torch.nan
 
@@ -186,7 +207,7 @@ class XTTSDataset(torch.utils.data.Dataset):
             "wav": wav,
             "wav_lengths": torch.tensor(wav.shape[-1], dtype=torch.long),
             "filenames": audiopath,
-            "conditioning": cond.unsqueeze(1),
+            "conditioning": cond.unsqueeze(1), # [1, 1, max_conditioning_length]
             "cond_lens": torch.tensor(cond_len, dtype=torch.long)
             if cond_len is not torch.nan
             else torch.tensor([cond_len]),

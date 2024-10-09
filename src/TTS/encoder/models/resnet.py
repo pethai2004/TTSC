@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 # from TTS.utils.audio.torch_transforms import TorchSTFT
-from TTS.encoder.models.base_encoder import BaseEncoder
+from src.TTS.encoder.models.base_encoder import BaseEncoder
 
 
 class SELayer(nn.Module):

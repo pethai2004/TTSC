@@ -7,13 +7,13 @@ import torch.nn.functional as F
 import torchaudio
 from coqpit import Coqpit
 
-from TTS.tts.layers.xtts.gpt import GPT
-from TTS.tts.layers.xtts.hifigan_decoder import HifiDecoder
-from TTS.tts.layers.xtts.stream_generator import init_stream_support
-from TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
-from TTS.tts.layers.xtts.xtts_manager import SpeakerManager, LanguageManager
-from TTS.tts.models.base_tts import BaseTTS
-from TTS.utils.io import load_fsspec
+from src.TTS.tts.layers.xtts.gpt import GPT
+from src.TTS.tts.layers.xtts.hifigan_decoder import HifiDecoder
+from src.TTS.tts.layers.xtts.stream_generator import init_stream_support
+from src.TTS.tts.layers.xtts.tokenizer import VoiceBpeTokenizer, split_sentence
+from src.TTS.tts.layers.xtts.xtts_manager import SpeakerManager, LanguageManager
+from src.TTS.tts.models.base_tts import BaseTTS
+from src.TTS.utils.io import load_fsspec
 
 init_stream_support()
 
@@ -75,7 +75,7 @@ def load_audio(audiopath, sampling_rate):
     # stereo to mono if needed
     if audio.size(0) != 1:
         audio = torch.mean(audio, dim=0, keepdim=True)
-
+    # now we have [1, T] tensor
     if lsr != sampling_rate:
         audio = torchaudio.functional.resample(audio, lsr, sampling_rate)
 

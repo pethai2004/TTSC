@@ -10,18 +10,18 @@ import torchaudio
 from coqpit import Coqpit
 from tqdm import tqdm
 
-from TTS.tts.layers.tortoise.arch_utils import TorchMelSpectrogram
-from TTS.tts.layers.tortoise.audio_utils import denormalize_tacotron_mel, load_voice, wav_to_univnet_mel
-from TTS.tts.layers.tortoise.autoregressive import UnifiedVoice
-from TTS.tts.layers.tortoise.classifier import AudioMiniEncoderWithClassifierHead
-from TTS.tts.layers.tortoise.clvp import CLVP
-from TTS.tts.layers.tortoise.diffusion import SpacedDiffusion, get_named_beta_schedule, space_timesteps
-from TTS.tts.layers.tortoise.diffusion_decoder import DiffusionTts
-from TTS.tts.layers.tortoise.random_latent_generator import RandomLatentConverter
-from TTS.tts.layers.tortoise.tokenizer import VoiceBpeTokenizer
-from TTS.tts.layers.tortoise.vocoder import VocConf, VocType
-from TTS.tts.layers.tortoise.wav2vec_alignment import Wav2VecAlignment
-from TTS.tts.models.base_tts import BaseTTS
+from src.TTS.tts.layers.tortoise.arch_utils import TorchMelSpectrogram
+from src.TTS.tts.layers.tortoise.audio_utils import denormalize_tacotron_mel, load_voice, wav_to_univnet_mel
+from src.TTS.tts.layers.tortoise.autoregressive import UnifiedVoice
+from src.TTS.tts.layers.tortoise.classifier import AudioMiniEncoderWithClassifierHead
+from src.TTS.tts.layers.tortoise.clvp import CLVP
+from src.TTS.tts.layers.tortoise.diffusion import SpacedDiffusion, get_named_beta_schedule, space_timesteps
+from src.TTS.tts.layers.tortoise.diffusion_decoder import DiffusionTts
+from src.TTS.tts.layers.tortoise.random_latent_generator import RandomLatentConverter
+from src.TTS.tts.layers.tortoise.tokenizer import VoiceBpeTokenizer
+from src.TTS.tts.layers.tortoise.vocoder import VocConf, VocType
+from src.TTS.tts.layers.tortoise.wav2vec_alignment import Wav2VecAlignment
+from src.TTS.tts.models.base_tts import BaseTTS
 
 
 def pad_or_truncate(t, length):

@@ -6,8 +6,8 @@ from typing import Callable, Dict, List, Tuple, Union
 
 import numpy as np
 
-from TTS.tts.datasets.dataset import *
-from TTS.tts.datasets.formatters import *
+from src.TTS.tts.datasets.dataset import *
+from src.TTS.tts.datasets.formatters import *
 
 
 def split_dataset(items, eval_split_max_size=None, eval_split_size=0.01):
